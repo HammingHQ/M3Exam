@@ -3,6 +3,7 @@ import os
 import json
 import argparse
 import csv
+from const import all_langs, all_levels
 
 
 def parse_args():
@@ -57,7 +58,6 @@ def write_json_to_csv(json_data, output_path):
 
 
 def run_evaluate(args, selected_langs):
-
     acc_dict = defaultdict()
     for lang in selected_langs:
         print('='*50)
@@ -70,20 +70,21 @@ def run_evaluate(args, selected_langs):
                 with open(pred_file_path, "r") as f:
                     preds = json.load(f)
 
-                # actually return the correct / total numbers of `acc_scores` for easily check 
-                # accuracy along different dimenions
                 acc_scores, errors, illformats = compute_acc_score(preds, args.model)
 
-                acc_dict[lang] = acc_scores
+                # Modify here to use 'nrQuestions' and 'nrCorrect'
+                acc_dict[lang] = {
+                    "nrQuestions": acc_scores[0],
+                    "nrCorrect": acc_scores[1]
+                }
+
                 error_file_path = output_folder + f"{lang}-error.json"
                 illformat_file_path = output_folder + f"{lang}-illformat.json"
                 with open(error_file_path, 'w') as f:
                     json.dump(errors, f)
-                #write_json_to_csv(errors, error_file_path.replace(".json", ".csv", 1))
 
                 with open(illformat_file_path, 'w') as f:
                     json.dump(illformats, f)
-                #write_json_to_csv(illformats, illformat_file_path.replace(".json", ".csv", 1))
         
         else:
             print("Cannot find corresponding prediction file!")
@@ -99,10 +100,7 @@ def run_evaluate(args, selected_langs):
 
 def main():
     args = parse_args()
-
-    all_langs = ['english', 'chinese', 'afrikaans', 'italian', 'javanese', 'thai', 'vietnamese', 'portuguese', 'swahili']
     selected_langs = eval(args.selected_langs) if args.selected_langs else all_langs
-
     run_evaluate(args, selected_langs)
 
 

@@ -1,6 +1,6 @@
 import os
 import json
-import openai
+from openai import OpenAI
 import pandas as pd
 import argparse
 import random
@@ -14,60 +14,58 @@ from tenacity import (
     wait_fixed,
 )
 import concurrent.futures
+from dotenv import load_dotenv
+from typing import Any, Tuple, List, Dict
+from const import all_langs, all_levels
+
+load_dotenv()
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_samples", type=str, default='5', help="Number of samples to test")
     parser.add_argument("--num_workers", type=int, default=5, help="Number of workers to use")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
-    parser.add_argument('--use_api', action='store_true', help='use api or not')
-    parser.add_argument('--api_key', type=str, default=None, help='explicitly give an api key')
     parser.add_argument("--selected_langs", type=str, default=None, help="list of string of languages")
     parser.add_argument("--selected_levels", type=str, default=None, help="list of string of levels")
     parser.add_argument("--data_path", type=str, default="./data/text-question/", help="path for writing and reading the data")
-    parser.add_argument("--model", type=str, default="chat", help="[chat, gpt4, bloom]")
+    parser.add_argument("--model", type=str, default="chat", help="[gpt-3.5-turbo, gpt-4-turbo, bloom]")
     parser.add_argument("--setting", type=str, default="few-shot", help="[few-shot, zero-shot]")
     parser.add_argument("--method", type=str, default="default", help="[default, en-instruct, en-trans]")
     return parser.parse_args()
 
 
-def before_retry_fn(retry_state):
+def before_retry_fn(retry_state: Any) -> None:
     if retry_state.attempt_number > 1:
         print(f"Retrying API call. Attempt #{retry_state.attempt_number}, f{retry_state}")
 
 
-def parallel_query_chatgpt_model(args):
-    return query_chatgpt_model(*args)
+def parallel_query_openai(args: Tuple[str, ...]) -> str:
+    return query_openai(*args)
 
 
-def parallel_query_gpt4_model(args):
-    return query_gpt4_model(*args)
-
-
-def parallel_query_bloom_model(args):
+def parallel_query_bloom_model(args: Tuple[str, ...]) -> str:
     return query_bloom_model(*args)
 
 
-# @retry(wait=wait_random_exponential(min=10, max=60), stop=stop_after_attempt(6), before=before_retry_fn)
 @retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
-def query_chatgpt_model(api_key: str, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 128, temperature: float = 0):
-    openai.api_key = api_key
+def query_openai(prompt: str, model: str = "gpt-4-turbo", max_tokens: int = 128, temperature: float = 0) -> str:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
     try:
-        completions = openai.ChatCompletion.create(
+        print('prompt', prompt)
+        completions = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
-            n=1,
-            stop=None,
             temperature=temperature,
         )
         output = completions.choices[0].message.content.strip()
+        print('output', output)
 
     except Exception as e:
-        # if the error is due to max context length, save such an error
         if "This model's maximum context length is 4097 tokens." in str(e):
             output = "the question is too long"
         else:
@@ -75,34 +73,8 @@ def query_chatgpt_model(api_key: str, prompt: str, model: str = "gpt-3.5-turbo",
 
     return output
 
-
-# @retry(wait=wait_random_exponential(min=10, max=60), stop=stop_after_attempt(6), before=before_retry_fn)
 @retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
-def query_gpt4_model(api_key: str, prompt: str, model: str = "gpt-4", max_tokens: int = 128, temperature: float = 0):
-    openai.api_key = api_key
-    try:
-        completions = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            n=1,
-            stop=None,
-            temperature=temperature,
-        )
-        output = completions.choices[0].message.content.strip()
-
-    except Exception as e:
-        # if the error is due to max context length, save such an error
-        if "This model's maximum context length is 4097 tokens." in str(e):
-            output = "the question is too long"
-        else:
-            raise e
-
-    return output
-
-
-@retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
-def query_bloom_model(api_key, prompt):
+def query_bloom_model(api_key: str, prompt: str) -> str:
     model_url = "https://api-inference.huggingface.co/models/bigscience/bloom"
     headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
@@ -123,7 +95,7 @@ def query_bloom_model(api_key, prompt):
     return pred
 
 
-def generate_one_example(question, lang, method, fill_answer=False):
+def generate_one_example(question: dict, lang: str, method: str, fill_answer: bool = False) -> str:
     answer_word = {'english': "Answer:", 'chinese': '答案：', 'vietnamese': 'Câu trả lời:', 'thai': 'คำตอบ:', 'italian': 'La risposta:',
                    'javanese': 'Wangsulan:', 'swahili': 'Jibu:', 'afrikaans': 'Antwoord:' ,'portuguese': 'Responder:'}
     background = '\n'+'\n'.join(question['background_description']) if question['background_description'] != [] else ''
@@ -140,7 +112,7 @@ def generate_one_example(question, lang, method, fill_answer=False):
     return prompt
 
 
-def generate_dev_examples(dev_questions, lang, method):
+def generate_dev_examples(dev_questions: List[dict], lang: str, method: str) -> Dict[str, Dict[str, List[str]]]:
 
     # save the dev examples into a dict, according to their levels and subject categories
     dev_example_dict = defaultdict(lambda: defaultdict(list))
@@ -153,7 +125,7 @@ def generate_dev_examples(dev_questions, lang, method):
     return dev_example_dict
 
 
-def generate_prompt(lang, method, setting, model, test_question, dev_question):
+def generate_prompt(lang: str, method: str, setting: str, model: str, test_question: dict, dev_question: dict) -> str:
     subject2target = {'english': {'language': 'English', 'math': "Math", 'social-science': "Social Science", 'natural-science': 'Natural Science'},
                       'english4all': {'language': 'Language', 'math': "Math", 'social-science': "Social Science", 'natural-science': 'Natural Science'},
                       'chinese':  {'language': '语文', 'math': "数学", 'social-science': "社会科学", 'natural-science': '自然科学'},
@@ -195,7 +167,7 @@ def generate_prompt(lang, method, setting, model, test_question, dev_question):
             raise NotImplemented
         
         # need to instruct the model to only output the option text
-        if model in ['chat', 'fake'] or setting == 'zero-shot':
+        if model in ['gpt-3.5-turbo', 'fake'] or setting == 'zero-shot':
             if lang == 'english':
                 hint += ' Please only give the correct option, without any other details or explanations.'
             elif lang == 'chinese':
@@ -236,7 +208,7 @@ def generate_prompt(lang, method, setting, model, test_question, dev_question):
     return prompt
 
 
-def process_lang(args, lang, api_key, selected_levels):
+def process_lang(args: argparse.Namespace, lang: str, selected_levels: List[str]) -> None:
 
     model = args.model
     method = args.method
@@ -244,7 +216,6 @@ def process_lang(args, lang, api_key, selected_levels):
 
     output_folder = f"outputs/{setting}/{method}/model_{model}/{lang}/"
     os.makedirs(output_folder, exist_ok=True)
-
 
     # if conduct few-shot settings
     if setting == 'few-shot':   
@@ -275,31 +246,24 @@ def process_lang(args, lang, api_key, selected_levels):
             test_questions = [q for q in test_questions if q['level'] in selected_levels]
 
         # generate prompts
-        all_prompts = []
-        
+        all_prompts: List[str] = []
+
         for question in test_questions:
             prompt = generate_prompt(lang, method, setting, model, question, dev_examples)
             all_prompts.append(prompt)
         
         # inference in batch
-        prompt_args = [(api_key, p) for p in all_prompts]
+        prompt_args = [(p, model) for p in all_prompts]
         
-        if api_key is not None:
-            if args.model == "chat":
-                parallel_call = parallel_query_chatgpt_model
-            elif args.model == 'gpt4':
-                parallel_call = parallel_query_gpt4_model
-            elif args.model == "bloom":
-                parallel_call = parallel_query_bloom_model
-            else:
-                raise NotImplementedError
-        
-            with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_workers) as executor:
-                predictions = list(tqdm(executor.map(parallel_call, prompt_args), total=len(prompt_args), desc=f"Conducting inference"))
-
+        if model in ["gpt-3.5-turbo", "gpt-4-turbo"] and OPENAI_API_KEY is not None:
+            parallel_call = parallel_query_openai
+        elif model == "bloom":
+            parallel_call = parallel_query_bloom_model
         else:
-            # generate fake answers for checking the prompt only
-            predictions = ['fake'] * len(prompt_args)
+            raise NotImplementedError
+    
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_workers) as executor:
+            predictions = list(tqdm(executor.map(parallel_call, prompt_args), total=len(prompt_args), desc=f"Conducting inference"))
 
         # save the predictions
         for idx, question in enumerate(test_questions):
@@ -317,15 +281,11 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    all_langs = ['english', 'chinese', 'afrikaans', 'italian', 'javanese', 'thai', 'vietnamese', 'portuguese', 'swahili']
     selected_langs = eval(args.selected_langs) if args.selected_langs else all_langs
-    selected_levels = eval(args.selected_levels) if args.selected_levels else ['low', 'mid', 'high']
-
-    # read in the api key
-    api_key = args.api_key
+    selected_levels = eval(args.selected_levels) if args.selected_levels else all_levels
 
     for lang in selected_langs:
-        process_lang(args, lang, api_key, selected_levels)
+        process_lang(args, lang, selected_levels)
 
 
 if __name__ == "__main__":
