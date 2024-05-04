@@ -4,7 +4,7 @@ import json
 import argparse
 import csv
 from const import all_langs, all_levels
-
+import re
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument("--data_path", type=str, default="./data/text-question/", help="path for writing and reading the data")
     parser.add_argument("--model", type=str, default="chat", help="[chat, gpt4]")
     parser.add_argument("--method", type=str, default="default", help="[default]")
+    parser.add_argument("--reasoning", type=str, default="default", help="[default, cot]")
     parser.add_argument("--setting", type=str, default="few-shot", help="[few-shot, zero-shot]")
     return parser.parse_args()
 
@@ -33,11 +34,12 @@ def compute_acc_score(preds, model):
         if len(pred) > 1:
             illformats.append(question)
 
-            if pred[0] != '(':
-                pred = pred[0]   # A) xxxx
-            else:
-                pred = pred[1]   # (A) xxxx
-        
+            # Extract the answer number using regex from the prediction text
+            # e.g. (1) -> 1
+            match_result = re.search(r'\((\d+)\)\.$', pred)
+            if match_result:
+                pred = match_result.group(1)
+
         if answer == pred:
             match += 1
         else:
@@ -62,7 +64,7 @@ def run_evaluate(args, selected_langs):
     for lang in selected_langs:
         print('='*50)
         print(f"Run eval on {lang}...")
-        output_folder = f"outputs/{args.setting}/{args.method}/model_{args.model}/{lang}/"
+        output_folder = f"outputs/{args.setting}/{args.reasoning}/{args.method}/model_{args.model}/{lang}/"
         print(output_folder)
         if os.path.exists(output_folder):
             pred_file_path = output_folder + f"{lang}-pred.json"
