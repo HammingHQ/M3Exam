@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from openai import OpenAI
 import pandas as pd
 import argparse
@@ -17,7 +18,9 @@ import concurrent.futures
 from dotenv import load_dotenv
 from typing import Any, Tuple, List, Dict
 from const import all_langs, all_levels, subject2target, answer_word
-from litellm import completion
+from litellm import completion, completion_cost
+# import litellm
+# litellm.set_verbose=True
 
 load_dotenv()
 
@@ -43,7 +46,7 @@ def before_retry_fn(retry_state: Any) -> None:
         print(f"Retrying API call. Attempt #{retry_state.attempt_number}, f{retry_state}")
 
 
-def parallel_query_llm(args: Tuple[str, ...]) -> str:
+def parallel_query_llm(args: Tuple[str, ...]) -> Tuple[str, float, float]:
     return query_llm(*args)
 
 
@@ -55,12 +58,17 @@ def parallel_query_bloom_model(args: Tuple[str, ...]) -> str:
 def query_llm(prompt: str, model: str = "gpt-4-turbo", temperature: float = 0) -> str:
     try:
         print('prompt', prompt)
+        print('model', model)
+        start_time = time.time()
         completions = completion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
         )
+        end = time.time()
+        total_time = end-start_time
         output = completions.choices[0].message.content.strip()
+        cost = completion_cost(completions)
         print('output', output)
 
     except Exception as e:
@@ -69,7 +77,7 @@ def query_llm(prompt: str, model: str = "gpt-4-turbo", temperature: float = 0) -
         else:
             raise e
 
-    return output
+    return (output, total_time, cost)
 
 @retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
 def query_bloom_model(api_key: str, prompt: str) -> str:
@@ -191,11 +199,12 @@ def generate_reasoning(reasoning: str, lang: str) -> str:
 
 
 def example_hints(setting: str, test_question: dict, lang: str, method: str, dev_question: dict, reasoning: str) -> str:
-    hint = generate_one_example(test_question, lang, method)
+    hint = 'Question you need to solve:\n\n' +  generate_one_example(test_question, lang, method)
     
     if setting == 'few-shot':
         dev_questions_list = dev_question[test_question['level']][test_question['subject_category']]
-        hint = '\n\n'.join(dev_questions_list) + '\n\n' + hint
+        # print('dev_questions_list', dev_questions_list)
+        hint = 'Examples:\n\n' + '\n\n'.join(f"Example #{i+1}:\n{example}" for i, example in enumerate(dev_questions_list)) + '\n\n' + hint
 
     return hint
 
@@ -203,10 +212,10 @@ def example_hints(setting: str, test_question: dict, lang: str, method: str, dev
 def generate_prompt(lang: str, method: str, setting: str, test_question: dict, dev_question: dict, reasoning: str) -> str:
     task_description = generate_task_description(test_question, lang, method)
     reasoning = generate_reasoning(reasoning, lang)
-    hint = example_hints(setting, test_question, lang, method, dev_question, reasoning)
+    examples = example_hints(setting, test_question, lang, method, dev_question, reasoning)
     answer_word = get_answer_word(lang, method)
 
-    prompt = task_description + '\n\n' + hint + '\n\n' + reasoning + f'\n\n{answer_word}'
+    prompt = task_description + '\n\n' + examples + '\n\n' + reasoning + f'\n\n{answer_word}'
 
     print(prompt)
 
@@ -229,14 +238,21 @@ def file_should_exist(file_path: str):
         raise FileNotFoundError
 
 
+def make_output_folder(output_folder: str) -> str:
+    os.makedirs(output_folder, exist_ok=True)
+    return output_folder
+
+
 def process_lang(args: argparse.Namespace, lang: str, selected_levels: List[str]) -> None:
     model = args.model
     method = args.method
     setting = args.setting
     reasoning = args.reasoning
 
+    print('model', model)
+
     output_folder = f"outputs/{setting}/{reasoning}/{method}/model_{model}/{lang}/"
-    os.makedirs(output_folder, exist_ok=True)
+    make_output_folder(output_folder)
 
     dev_examples = get_dev_examples(args, lang, method) if setting == 'few-shot' else {}
 
@@ -275,8 +291,11 @@ def process_lang(args: argparse.Namespace, lang: str, selected_levels: List[str]
 
     # save the predictions
     for idx, question in enumerate(test_questions):
-        question[model+'_pred'] = predictions[idx]    # save the pred
+        (pred, total_time, cost) = predictions[idx]
+        question[model+'_pred'] = pred    # save the pred
         question['prompt'] = all_prompts[idx]         # also save the prompt
+        question['total_time'] = total_time
+        question['cost'] = cost
     
     with open(f"{output_folder}/{lang}-pred.json", "w") as f:
         json.dump(test_questions, f)

@@ -26,13 +26,16 @@ def extract_answer_from_pred(pred: str) -> str:
 
 def compute_acc_score(preds, model):
     """ Compute acc scores for a particular json file """
-    match, total = 0, 0
+    match, total, total_time, total_cost = 0, 0, 0, 0
     errors = []
     for question in preds:
         total += 1
         answer = str(question['answer_text']).strip()
         pred = question[model+'_pred'].strip()
-        
+
+        total_time += question['total_time']
+        total_cost += question['cost']
+
         # prediction of bloom also include the input prompt
         if model == 'bloom':
             pred = pred.replace(question['prompt'], "").strip()
@@ -50,7 +53,7 @@ def compute_acc_score(preds, model):
         else:
             errors.append(question)
 
-    return (total, match), errors
+    return (total, match, total_time, total_cost), errors
 
 
 def write_json_to_csv(json_data, output_path):
@@ -82,7 +85,11 @@ def run_evaluate(args, selected_langs):
                 # Modify here to use 'nrQuestions' and 'nrCorrect'
                 acc_dict[lang] = {
                     "nrQuestions": acc_scores[0],
-                    "nrCorrect": acc_scores[1]
+                    "nrCorrect": acc_scores[1],
+                    "total_time": acc_scores[2],
+                    "total_cost": acc_scores[3],
+                    "avg_time": acc_scores[2] / acc_scores[0] if acc_scores[0] > 0 else 0,
+                    "avg_cost": acc_scores[3] / acc_scores[0] if acc_scores[0] > 0 else 0
                 }
 
                 error_file_path = output_folder + f"{lang}-error.json"
