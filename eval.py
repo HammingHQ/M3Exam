@@ -33,7 +33,7 @@ def compute_acc_score(preds, model):
         answer = str(question['answer_text']).strip()
         pred = question[model+'_pred'].strip()
 
-        total_time += question['total_time']
+        total_time += question['time']
         total_cost += question['cost']
 
         # prediction of bloom also include the input prompt

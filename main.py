@@ -19,10 +19,18 @@ from dotenv import load_dotenv
 from typing import Any, Tuple, List, Dict
 from const import all_langs, all_levels, subject2target, answer_word
 from litellm import completion, completion_cost
+# from openai import AzureOpenAI
+load_dotenv()
+
+# client = AzureOpenAI(
+#     api_key=os.getenv('AZURE_API_KEY'),
+#     azure_endpoint=os.getenv('AZURE_API_BASE'),
+#     api_version=os.getenv('AZURE_API_VERSION'),
+# )
+
 # import litellm
 # litellm.set_verbose=True
 
-load_dotenv()
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -54,28 +62,30 @@ def parallel_query_bloom_model(args: Tuple[str, ...]) -> str:
     return query_bloom_model(*args)
 
 
-@retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
+@retry(wait=wait_fixed(30), stop=stop_after_attempt(6), before=before_retry_fn)
 def query_llm(prompt: str, model: str = "gpt-4-turbo", temperature: float = 0) -> str:
     try:
         print('prompt', prompt)
         print('model', model)
         start_time = time.time()
+
         completions = completion(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}],            
             temperature=temperature,
         )
         end = time.time()
         total_time = end-start_time
         output = completions.choices[0].message.content.strip()
-        cost = completion_cost(completions)
+        if 'groq' in model:
+            cost = 0
+        else:
+            cost = completion_cost(completions)
         print('output', output)
 
     except Exception as e:
-        if "This model's maximum context length is 4097 tokens." in str(e):
-            output = "the question is too long"
-        else:
-            raise e
+        print('error', e)
+        raise e
 
     return (output, total_time, cost)
 
@@ -203,7 +213,6 @@ def example_hints(setting: str, test_question: dict, lang: str, method: str, dev
     
     if setting == 'few-shot':
         dev_questions_list = dev_question[test_question['level']][test_question['subject_category']]
-        # print('dev_questions_list', dev_questions_list)
         hint = 'Examples:\n\n' + '\n\n'.join(f"Example #{i+1}:\n{example}" for i, example in enumerate(dev_questions_list)) + '\n\n' + hint
 
     return hint
@@ -294,7 +303,7 @@ def process_lang(args: argparse.Namespace, lang: str, selected_levels: List[str]
         (pred, total_time, cost) = predictions[idx]
         question[model+'_pred'] = pred    # save the pred
         question['prompt'] = all_prompts[idx]         # also save the prompt
-        question['total_time'] = total_time
+        question['time'] = total_time
         question['cost'] = cost
     
     with open(f"{output_folder}/{lang}-pred.json", "w") as f:
