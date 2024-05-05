@@ -14,3 +14,6 @@ subject2target = {'english': {'language': 'English', 'math': "Math", 'social-sci
                   'afrikaans': {'language': 'Afrikaans Huistaal', 'math': "Wiskunde", 'social-science': "Sosiale Wetenskappe", 'natural-science': 'Natuurwetenskap'},
                   'portuguese': {'language': 'Linguagens', 'math': 'Matemática', 'social-science': 'Ciências Humanas', 'natural-science': 'Ciências da Natureza'},
                   }
+
+answer_word = {'english': "Answer:", 'chinese': '答案：', 'vietnamese': 'Câu trả lời:', 'thai': 'คำตอบ:', 'italian': 'La risposta:',
+                   'javanese': 'Wangsulan:', 'swahili': 'Jibu:', 'afrikaans': 'Antwoord:' ,'portuguese': 'Responder:'}

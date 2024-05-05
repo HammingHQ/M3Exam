@@ -17,10 +17,17 @@ def parse_args():
     return parser.parse_args()
 
 
+def extract_answer_from_pred(pred: str) -> str:
+    """ Extract an answer number using regex from the prediction text"""
+    pattern = r'\(([^)]+)\)'
+    match = re.search(pattern, pred)
+    return match.group(1) if match else None
+
+
 def compute_acc_score(preds, model):
     """ Compute acc scores for a particular json file """
     match, total = 0, 0
-    errors, illformats = [], []
+    errors = []
     for question in preds:
         total += 1
         answer = str(question['answer_text']).strip()
@@ -32,20 +39,18 @@ def compute_acc_score(preds, model):
             question['bloom_pred_strip'] = pred
 
         if len(pred) > 1:
-            illformats.append(question)
-
             # Extract the answer number using regex from the prediction text
             # e.g. (1) -> 1
-            match_result = re.search(r'\((\d+)\)\.$', pred)
-            if match_result:
-                pred = match_result.group(1)
+            print('prompt', pred)
+            pred = extract_answer_from_pred(pred)
+            print('answer', pred)
 
         if answer == pred:
             match += 1
         else:
             errors.append(question)
 
-    return (total, match), errors, illformats
+    return (total, match), errors
 
 
 def write_json_to_csv(json_data, output_path):
@@ -72,7 +77,7 @@ def run_evaluate(args, selected_langs):
                 with open(pred_file_path, "r") as f:
                     preds = json.load(f)
 
-                acc_scores, errors, illformats = compute_acc_score(preds, args.model)
+                acc_scores, errors = compute_acc_score(preds, args.model)
 
                 # Modify here to use 'nrQuestions' and 'nrCorrect'
                 acc_dict[lang] = {
@@ -81,12 +86,12 @@ def run_evaluate(args, selected_langs):
                 }
 
                 error_file_path = output_folder + f"{lang}-error.json"
-                illformat_file_path = output_folder + f"{lang}-illformat.json"
                 with open(error_file_path, 'w') as f:
                     json.dump(errors, f)
 
-                with open(illformat_file_path, 'w') as f:
-                    json.dump(illformats, f)
+                # illformat_file_path = output_folder + f"{lang}-illformat.json"
+                # with open(illformat_file_path, 'w') as f:
+                #     json.dump(illformats, f)
         
         else:
             print("Cannot find corresponding prediction file!")

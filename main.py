@@ -16,7 +16,7 @@ from tenacity import (
 import concurrent.futures
 from dotenv import load_dotenv
 from typing import Any, Tuple, List, Dict
-from const import all_langs, all_levels, subject2target
+from const import all_langs, all_levels, subject2target, answer_word
 from litellm import completion
 
 load_dotenv()
@@ -52,13 +52,12 @@ def parallel_query_bloom_model(args: Tuple[str, ...]) -> str:
 
 
 @retry(wait=wait_fixed(10), stop=stop_after_attempt(6), before=before_retry_fn)
-def query_llm(prompt: str, model: str = "gpt-4-turbo", max_tokens: int = 128, temperature: float = 0) -> str:
+def query_llm(prompt: str, model: str = "gpt-4-turbo", temperature: float = 0) -> str:
     try:
         print('prompt', prompt)
         completions = completion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
             temperature=temperature,
         )
         output = completions.choices[0].message.content.strip()
@@ -94,19 +93,23 @@ def query_bloom_model(api_key: str, prompt: str) -> str:
     return pred
 
 
-def generate_one_example(question: dict, lang: str, method: str, fill_answer: bool = False) -> str:
-    answer_word = {'english': "Answer:", 'chinese': '答案：', 'vietnamese': 'Câu trả lời:', 'thai': 'คำตอบ:', 'italian': 'La risposta:',
-                   'javanese': 'Wangsulan:', 'swahili': 'Jibu:', 'afrikaans': 'Antwoord:' ,'portuguese': 'Responder:'}
+def get_answer_word(lang: str, method: str) -> str:
+    return answer_word[lang] if method == 'default' else answer_word['english']
+
+
+def generate_one_example(question: dict, lang: str, method: str, fill_answer: bool = False) -> str:        
     background = '\n'+'\n'.join(question['background_description']) if question['background_description'] != [] else ''
+
     if method == 'default':
-        prompt = background + '\n' + question['question_text'] + '\n' + '\n'.join(question['options']) + f'\n{answer_word[lang]}'
+        prompt = background + '\n' + question['question_text'] + '\n' + '\n'.join(question['options'])
     elif method == 'en-instruct':
-        prompt = background + '\n' + question['question_text'] + '\n' + '\n'.join(question['options']) + f'\nAnswer:'
+        prompt = background + '\n' + question['question_text'] + '\n' + '\n'.join(question['options'])
     elif method == 'en-trans':
-        prompt = question['background_description_english'] + '\n' + question['question_text_english'] + '\n' + question['options_english'] + f'\nAnswer:'
+        prompt = question['background_description_english'] + '\n' + question['question_text_english'] + '\n' + question['options_english']
     
     if fill_answer:
-        prompt += str(question['answer_text'])
+        answer_word = get_answer_word(lang, method)
+        prompt += f'\n{answer_word} {str(question["answer_text"])}'
     
     return prompt
 
@@ -147,7 +150,7 @@ def generate_task_description(test_question: dict, lang: str, method: str) -> st
     if lang not in descriptions:
         raise NotImplementedError(f"Language '{lang}' not implemented.")
 
-    return descriptions[lang]
+    return 'Your task: ' + descriptions[lang]
 
 
 def generate_reasoning(reasoning: str, lang: str) -> str:
@@ -168,7 +171,7 @@ def generate_reasoning(reasoning: str, lang: str) -> str:
     # then compare each multiple-choice option with the question asked, 
     # and finally select the option that correctly answers the question
     cotHints = {
-        'english': 'First carefully analyze the question asked in your own words, compare each multiple-choice option with the question asked, then select the option that correctly answers the question. End your answer with, `... Therefore, the correct option is (X).`',
+        'english': '1) First carefully analyze the question asked in your own words 2) Compare each multiple-choice option with the question asked 3) Then select the option that correctly answers the question. e.g. Therefore, the answer is (X).',
         'chinese': '首先用自己的话仔细分析所提问的问题，将每个选择题选项与所提问的问题进行比较，然后选择正确回答问题的选项。因此，正确的选项是 (X)。',
         'thai': 'วิเคราะห์คำถามที่ถามมาอย่างรอบคอบเป็นคำพูดของคุณเองก่อน, เปรียบเทียบแต่ละตัวเลือกกับคำถามที่ถาม, จากนั้นเลือกตัวเลือกที่ตอบคำถามนั้นได้อย่างถูกต้อง. ดังนั้น, ตัวเลือกที่ถูกต้องคือ (X)。',
         'vietnamese': 'Trước tiên, hãy phân tích câu hỏi được đặt ra bằng cách dùng lời của bạn, so sánh mỗi lựa chọn trắc nghiệm với câu hỏi đã đặt, sau đó chọn lựa chọn trả lời đúng câu hỏi. Vì vậy, lựa chọn đúng là (X)。',
@@ -180,9 +183,9 @@ def generate_reasoning(reasoning: str, lang: str) -> str:
     }
 
     if reasoning == 'default':
-        return normalHints[lang]
+        return 'Formatting instructions: ' + normalHints[lang]
     elif reasoning == 'cot':
-        return cotHints[lang]
+        return 'Formatting instructions: ' + cotHints[lang]
     else:
         raise NotImplementedError
 
@@ -201,8 +204,9 @@ def generate_prompt(lang: str, method: str, setting: str, test_question: dict, d
     task_description = generate_task_description(test_question, lang, method)
     reasoning = generate_reasoning(reasoning, lang)
     hint = example_hints(setting, test_question, lang, method, dev_question, reasoning)
+    answer_word = get_answer_word(lang, method)
 
-    prompt = task_description + '\n\n' + reasoning + '\n' + hint
+    prompt = task_description + '\n\n' + hint + '\n\n' + reasoning + f'\n\n{answer_word}'
 
     print(prompt)
 
