@@ -71,7 +71,7 @@ def query_llm(prompt: str, model: str = "gpt-4-turbo", temperature: float = 0) -
 
         completions = completion(
             model=model,
-            messages=[{"role": "user", "content": prompt}],            
+            messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
         )
         end = time.time()

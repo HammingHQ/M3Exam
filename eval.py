@@ -17,6 +17,19 @@ def parse_args():
     return parser.parse_args()
 
 
+"""
+Extracts the answer from a given prediction string.
+
+This function attempts to extract an answer from a prediction string using two methods:
+1. It first looks for an answer enclosed in parentheses, expecting the last occurrence to be the answer.
+2. If no parentheses are found, it tries to extract a standalone letter or number that is followed by a period.
+
+Args:
+    pred (str): The prediction string from which to extract the answer.
+
+Returns:
+    str: The extracted answer if found, otherwise None.
+"""
 def extract_answer_from_pred(pred: str) -> str:
     # First, try to extract an answer enclosed in parentheses, expecting the last occurrence to be the answer
     match = re.search(r'\(([^)]+)\)[^()]*$', pred)
