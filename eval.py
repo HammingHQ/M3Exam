@@ -18,10 +18,24 @@ def parse_args():
 
 
 def extract_answer_from_pred(pred: str) -> str:
-    """ Extract an answer number using regex from the prediction text"""
-    pattern = r'\(([^)]+)\)'
-    match = re.search(pattern, pred)
-    return match.group(1) if match else None
+    # First, try to extract an answer enclosed in parentheses, expecting the last occurrence to be the answer
+    match = re.search(r'\(([^)]+)\)[^()]*$', pred)
+    if match:
+        # Extract only the last alphanumeric portion as the answer (ignoring full sentences or additional content in parentheses)
+        inner_content = match.group(1).strip()
+        answer_match = re.search(r'\b(\w+)\b\s*$', inner_content)
+        if answer_match:
+            return answer_match.group(1)
+        return inner_content
+
+    # If no parentheses, try to extract a standalone letter or number that is followed by a period
+    # Pattern modified to handle answers at the beginning or middle of the string, ending with a period
+    match = re.search(r'\b([A-Za-z0-9])\.\s*(?![\w\.])', pred)
+    if match:
+        return match.group(1)
+
+    return None
+
 
 
 def compute_acc_score(preds, model):

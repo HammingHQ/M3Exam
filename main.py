@@ -190,15 +190,16 @@ def generate_reasoning(reasoning: str, lang: str) -> str:
     # and finally select the option that correctly answers the question
     cotHints = {
         'english': '1) First carefully analyze the question asked in your own words 2) Compare each multiple-choice option with the question asked 3) Then select the option that correctly answers the question. e.g. Therefore, the answer is (X).',
-        'chinese': '首先用自己的话仔细分析所提问的问题，将每个选择题选项与所提问的问题进行比较，然后选择正确回答问题的选项。因此，正确的选项是 (X)。',
-        'thai': 'วิเคราะห์คำถามที่ถามมาอย่างรอบคอบเป็นคำพูดของคุณเองก่อน, เปรียบเทียบแต่ละตัวเลือกกับคำถามที่ถาม, จากนั้นเลือกตัวเลือกที่ตอบคำถามนั้นได้อย่างถูกต้อง. ดังนั้น, ตัวเลือกที่ถูกต้องคือ (X)。',
-        'vietnamese': 'Trước tiên, hãy phân tích câu hỏi được đặt ra bằng cách dùng lời của bạn, so sánh mỗi lựa chọn trắc nghiệm với câu hỏi đã đặt, sau đó chọn lựa chọn trả lời đúng câu hỏi. Vì vậy, lựa chọn đúng là (X)。',
-        'italian': 'Prima analizza attentamente la domanda posta con le tue parole, confronta ogni opzione a scelta multipla con la domanda posta, poi seleziona l\'opzione che risponde correttamente alla domanda. Pertanto, l\'opzione corretta è (X)。',
-        'javanese': 'Pisanan, tilar mriksa pitakèn sing dipunsuwun kanthi tembung panjenengan dhéwé, bandhingna saben pilihan ganda kalihan pitakèn sing dipunsuwun, banjur pilih pilihan ingkang wangsulan pitakèn punika kanthi leres. Mulane, pilihan sing bener yaiku (X)。',
-        'afrikaans': 'Analiseer eers die vraag wat gevra is in jou eie woorde, vergelyk elke meerkeuse-opsie met die vraag wat gevra is, kies dan die opsie wat die vraag korrek beantwoord. Daarom is die korrekte opsie (X)。',
-        'swahili': 'Kwanza chambua swali lililoulizwa kwa maneno yako mwenyewe, linganisha kila chaguo la muktadha na swali lililoulizwa, kisha chagua chaguo linalojibu swali hilo kwa usahihi. Hivyo, chaguo sahihi ni (X)。',
-        'portuguese': 'Primeiro analise cuidadosamente a questão colocada em suas próprias palavras, compare cada opção de múltipla escolha com a questão feita, depois selecione a opção que responde corretamente à questão. Portanto, a opção correta é (X)。'
+        'chinese': '1) 首先用自己的话仔细分析所提问的问题 2) 将每个选择题选项与所提问的问题进行比较 3) 然后选择正确回答问题的选项。例如，正确的选项是 (X)。',
+        'thai': '1) วิเคราะห์คำถามที่ถามมาอย่างรอบคอบเป็นคำพูดของคุณเองก่อน, 2) เปรียบเทียบแต่ละตัวเลือกกับคำถามที่ถาม, 3) จากนั้นเลือกตัวเลือกที่ตอบคำถามนั้นได้อย่างถูกต้อง. ตัวอย่างเช่น, ตัวเลือกที่ถูกต้องคือ (X)。',
+        'vietnamese': '1) Trước tiên, hãy phân tích câu hỏi được đặt ra bằng cách dùng lời của bạn, 2) so sánh mỗi lựa chọn trắc nghiệm với câu hỏi đã đặt, 3) sau đó chọn lựa chọn trả lời đúng câu hỏi. Ví dụ, lựa chọn đúng là (X)。',
+        'italian': '1) Prima analizza attentamente la domanda posta con le tue parole, 2) confronta ogni opzione a scelta multipla con la domanda posta, 3) poi seleziona l\'opzione che risponde correttamente alla domanda. Pertanto, l\'opzione corretta è (X)。',
+        'javanese': '1) Pisanan, tilar mriksa pitakèn sing dipunsuwun kanthi tembung panjenengan dhéwé, 2) bandhingna saben pilihan ganda kalihan pitakèn sing dipunsuwun, 3) banjur pilih pilihan ingkang wangsulan pitakèn punika kanthi leres. Mulane, pilihan sing bener yaiku (X)。',
+        'afrikaans': '1) Analiseer eers die vraag wat gevra is in jou eie woorde, 2) vergelyk elke meerkeuse-opsie met die vraag wat gevra is, 3) kies dan die opsie wat die vraag korrek beantwoord. Daarom is die korrekte opsie (X)。',
+        'swahili': '1) Kwanza chambua swali lililoulizwa kwa maneno yako mwenyewe, 2) linganisha kila chaguo la muktadha na swali lililoulizwa, 3) kisha chagua chaguo linalojibu swali hilo kwa usahihi. Hivyo, chaguo sahihi ni (X)。',
+        'portuguese': '1) Primeiro analise cuidadosamente a questão colocada em suas próprias palavras, 2) compare cada opção de múltipla escolha com a questão feita, 3) depois selecione a opção que responde corretamente à questão. Portanto, a opção correta é (X)。'
     }
+
 
     if reasoning == 'default':
         return 'Formatting instructions: ' + normalHints[lang]

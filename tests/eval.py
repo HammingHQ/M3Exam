@@ -45,5 +45,41 @@ Therefore, the answer is (1) Dropping atomic bombs was not necessary to end the 
         pred = "The question is asking for the vapor pressure of propanone at 45°C. \n\nOption (4) 79 kPa is the correct answer as it is the closest to the typical vapor pressure of propanone at 45°C, which is around 79 kPa."
         self.assertEqual(extract_answer_from_pred(pred), "4")
 
+    def test_chinese_political_ideology(self):
+        pred = "A. 习近平新时代中国特色社会主义思想"
+        self.assertEqual(extract_answer_from_pred(pred), "A")
+
+    def test_ngerti_marang_kahanane_wong_tuwa(self):
+        pred = "a. ngerti marang kahanane wong tuwa"
+        self.assertEqual(extract_answer_from_pred(pred), "a")
+
+    def test_fan_brand_comparison(self):
+        pred = "4. พัดลมยี่ห้อ B จะประหยัดค่าไฟฟ้าได้มากกว่ายี่ห้อ A 44 บาท และความถี่การหมุนใบพัดเท่ากันทั้งสองยี่ห้อ"
+        self.assertEqual(extract_answer_from_pred(pred), "4")
+
+    def test_correct_option_indonesian(self):
+        pred = "Jadi, pilihan yang benar adalah: a."
+        self.assertEqual(extract_answer_from_pred(pred), "a")
+
+    def test_criminal_responsibility_vietnamese(self):
+        pred = "D. Trách nhiệm hình sự được áp dụng cho những cá nhân có hành vi nguy hiểm hoặc vi phạm pháp luật, tức là người có hành vi vi phạm các nguyên tắc quản lý nhà nước không áp dụng trách nhiệm hình sự, mà có thể chịu trách nhiệm hành chính hoặc dân sự tuỳ thuộc vào mức độ vi phạm. Vì vậy, lựa chọn đúng là D."
+        self.assertEqual(extract_answer_from_pred(pred), "D")
+
+    def test_criminal_responsibility_vietnamese_extended(self):
+        pred = "Trách nhiệm hình sự được áp dụng cho những cá nhân có hành vi nguy hiểm hoặc vi phạm pháp luật, đe dọa đến xã hội. Do đó, lựa chọn đúng là B: Người có hành vi nguy hiểm cho xã hội."
+        self.assertEqual(extract_answer_from_pred(pred), "B")
+
+    def test_chinese_answer(self):
+        pred = "答案：A"
+        self.assertEqual(extract_answer_from_pred(pred), "A")
+
+    def test_expansionist_foreign_policy(self):
+        pred = "A) Was 'n ekspansionistiese buitelandse beleid."
+        self.assertEqual(extract_answer_from_pred(pred), "A")
+
+    def test_chinese_political_ideology_extended(self):
+        pred = "正确答案是 A。 \n\n分析：中国共产党第十九次全国代表大会强调，中国共产党在执政过程中，对共产党执政规律、社会主义建设规律和人类社会发展规律有了更深入的认识和理解，并取得了重大的理论创新成果。这些创新成果构成了 '习近平新时代中国特色社会主义思想'。因此，选项 A 是正确答案。"
+        self.assertEqual(extract_answer_from_pred(pred), "A")
+
 if __name__ == '__main__':
     unittest.main()
