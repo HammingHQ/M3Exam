@@ -13,4 +13,3 @@ for setting in ${settings[@]}; do
         done
     done
 done
-
